@@ -147,6 +147,8 @@ try {
         Fetch $config.glslangUrl $archive $config.glslangSha256
         Expand-Archive $archive (Join-Path $tools 'glslang') -Force
     }
+    Say 'Checking the shader compiler'
+    Run $shaderCompiler @('--version')
     $env:PATH = "$(Join-Path $sdk ('cmake/' + $config.cmake + '/bin'));$env:PATH"
 
     Say 'Preparing a separate source copy'
