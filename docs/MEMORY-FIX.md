@@ -10,6 +10,6 @@ If any matching patch is binary IPS, or NSO dumping is enabled, the original pat
 
 Validation of the original private version included 10,000 randomized helper comparisons and boundary cases, full Android compilation, APK signature verification, and a user test on an 8 GB Retroid Pocket Nova. The working log confirms in-place patch application and subsequent game execution. The user confirmed correct proportions and intentional exit through Eden's menu. The exit-time panic/assertion is not evidence of an unprompted gameplay crash. Long-term stability, other titles, mixed-patch fallback at runtime, and exact peak RAM reduction have not been established.
 
-The October 18 nightly's five affected existing source files are byte-identical to their October 8 counterparts. The existing patch passes a clean application check. The two upstream revisions can still differ elsewhere; the new APK needs a device test.
+The October 18 nightly's five affected existing source files are byte-identical to their October 8 counterparts. The existing patch passes a clean application check. The two upstream revisions can still differ elsewhere. On October 29, Shawn confirmed that the updated APK built from the October 18 nightly works on his Retroid Pocket Nova. This is a single-device confirmation, not a broader compatibility or stability test.
 
 Relevant source files: `src/core/loader/nso.cpp`, `src/core/file_sys/patch_manager.{cpp,h}`, and `src/core/file_sys/ips_layer.{cpp,h}`. The patch also adds `src/core/file_sys/module_patch_write.h`.
