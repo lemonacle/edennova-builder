@@ -20,7 +20,7 @@ The script uses Windows PowerShell only for this process; it does not change you
 
 This was the latest published nightly checked on October 29, 2026. The builder deliberately pins that revision, rather than silently applying a patch to future source changes. Its memory-loader files match the revision used for the original successful Dread test, and the patch applies cleanly. A successful build is not a claim that every game/mod works.
 
-**Builder validation (October 29):** fresh tool setup and a separate extracted builder ZIP passed preparation checks; the full Windows Android build succeeded. The resulting APK passed signature, package, version, and device-compatibility checks, and its packaged native library contains the in-place patch loader. Device testing of this newer nightly remains pending.
+**Builder validation (October 29):** fresh tool setup and a separate extracted builder ZIP passed preparation checks; the full Windows Android build succeeded. The resulting APK passed signature, package, version, and device-compatibility checks, and its packaged native library contains the in-place patch loader. Shawn confirmed on October 29 that the updated app works on his Retroid Pocket Nova.
 
 - [Official nightly release](https://git.eden-emu.dev/eden-ci/nightly/releases/tag/v1792353251.de7e6e01d4)
 - [Official source repository](https://git.eden-emu.dev/eden-emu/eden)
