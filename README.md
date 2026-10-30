@@ -47,7 +47,7 @@ A log line beginning **`Patched module main in place`** confirms that the new lo
 - A source or patch mismatch intentionally stops the build. Use the pinned source ZIP above. Don't force a patch onto another revision.
 - Windows may block files downloaded from the internet. Review the scripts first. If you trust this repository, right-click the downloaded builder ZIP -> **Properties -> Unblock**, then extract it again. Do not disable antivirus globally.
 - Keep the folder on a local drive, not inside a ZIP, network share, or a cloud-synced folder. Short local paths are simplest. The builder temporarily maps a free drive letter to avoid Windows compiler path limits and removes mappings it creates when it exits normally.
-- Build out of memory: close memory-heavy apps and retry. The builder uses four parallel jobs by default.
+- Build out of memory: close memory-heavy apps and retry. Gradle is limited to four workers; Android's native compiler can launch additional parallel tasks, so a PC with more RAM helps.
 - APK rejected as an update: compare **output/build-info.json** with the previous build. The package and signing certificate must match, and the version code must increase. Preserve the current app and saves.
 
 ## Project scope
