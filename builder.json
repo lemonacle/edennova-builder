@@ -1,0 +1,19 @@
+{
+  "revision": "de7e6e01d43e8cf2ec193d74fa053b0d7949955f",
+  "nightlyName": "Eden Nightly - Oct 18 2026",
+  "nightlyUrl": "https://git.eden-emu.dev/eden-ci/nightly/releases/tag/v1792353251.de7e6e01d4",
+  "sourceUrl": "https://github.com/eden-emulator/mirror/archive/de7e6e01d43e8cf2ec193d74fa053b0d7949955f.zip",
+  "sourceSha256": "0b270dc24aa4c2b97bd2f4060eec34c81cc82e44918ddad13fe935e654dd24a9",
+  "jdkUrl": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_x64_windows_hotspot_17.0.20.1_1.zip",
+  "jdkSha256": "e53a79c3c3d86865bd7e787903884331068e71321714ffd44f145785affc7cb0",
+  "gitUrl": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/PortableGit-2.56.0.4-64-bit.7z.exe",
+  "gitSha256": "b1f3e52216e2ed6882d1bebfd4d3fdf319bec40d2edbbf9fd26ec4fd3fce7ed1",
+  "sdkToolsUrl": "https://dl.google.com/android/repository/commandlinetools-win-16111833_latest.zip",
+  "sdkToolsSha1": "57d04f2d75eb8e8fffc5000a987e5de4b5a63e9d",
+  "glslangUrl": "https://github.com/KhronosGroup/glslang/releases/download/16.6.0/glslang-16.6.0-windows-x86_64-release.zip",
+  "glslangSha256": "82bf434e69b9bb4829de7e2b4bc2c5e7a7861e53d66cf75e5cc70f5f694a8d9b",
+  "ndk": "28.2.13676358",
+  "cmake": "3.31.6",
+  "platform": "36",
+  "buildTools": "35.0.0"
+}
