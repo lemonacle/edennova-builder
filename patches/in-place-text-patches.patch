@@ -1,0 +1,167 @@
+diff --git a/src/core/file_sys/ips_layer.cpp b/src/core/file_sys/ips_layer.cpp
+index 32e9041..4dd30be 100644
+--- a/src/core/file_sys/ips_layer.cpp
++++ b/src/core/file_sys/ips_layer.cpp
+@@ -14,6 +14,7 @@
+ #include "common/logging.h"
+ #include "common/swap.h"
+ #include "core/file_sys/ips_layer.h"
++#include "core/file_sys/module_patch_write.h"
+ #include "core/file_sys/vfs/vfs_vector.h"
+ 
+ namespace FileSys {
+@@ -309,4 +310,14 @@ VirtualFile IPSwitchCompiler::Apply(const VirtualFile& in) const {
+     return std::make_shared<VectorVfsFile>(std::move(in_data), in->GetName(), in->GetContainingDirectory());
+ }
+ 
++void IPSwitchCompiler::ApplyToModule(std::span<u8> body, std::size_t header_size) const {
++    for (const auto& patch : patches) {
++        if (!patch.enabled)
++            continue;
++        for (const auto& record : patch.records) {
++            ApplyModulePatchWrite(body, header_size, record.first, record.second.data);
++        }
++    }
++}
++
+ } // namespace FileSys
+diff --git a/src/core/file_sys/ips_layer.h b/src/core/file_sys/ips_layer.h
+index e3c61f1..5820dcd 100644
+--- a/src/core/file_sys/ips_layer.h
++++ b/src/core/file_sys/ips_layer.h
+@@ -24,6 +24,9 @@ public:
+ 
+     std::array<u8, 0x20> GetBuildID() const;
+     VirtualFile Apply(const VirtualFile& in) const;
++    // Mutates only the module body; synthetic NSO-header writes are discarded,
++    // matching PatchNSO's final restoration of the original header.
++    void ApplyToModule(std::span<u8> body, std::size_t header_size) const;
+ 
+ private:
+     struct IPSwitchPatch;
+diff --git a/src/core/file_sys/module_patch_write.h b/src/core/file_sys/module_patch_write.h
+new file mode 100644
+index 0000000..178643b
+--- /dev/null
++++ b/src/core/file_sys/module_patch_write.h
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <span>
++
++namespace FileSys {
++// Reproduce a write to [synthetic header | body], followed by restoration
++// of the header, without allocating or copying that combined image.
++inline void ApplyModulePatchWrite(std::span<std::uint8_t> body,
++                                  std::size_t header_size, std::size_t offset,
++                                  std::span<const std::uint8_t> bytes) {
++    if (offset < header_size) {
++        const auto skip = std::min(header_size - offset, bytes.size());
++        bytes = bytes.subspan(skip);
++        offset += skip;
++        if (offset < header_size)
++            return;
++    }
++    const auto destination = offset - header_size;
++    if (destination >= body.size() || bytes.empty())
++        return;
++    const auto count = std::min(bytes.size(), body.size() - destination);
++    std::memcpy(body.data() + destination, bytes.data(), count);
++}
++} // namespace FileSys
+diff --git a/src/core/file_sys/patch_manager.cpp b/src/core/file_sys/patch_manager.cpp
+index 4fd7dc6..2990713 100644
+--- a/src/core/file_sys/patch_manager.cpp
++++ b/src/core/file_sys/patch_manager.cpp
+@@ -468,6 +468,35 @@ std::vector<u8> PatchManager::PatchNSO(const std::vector<u8>& nso, const std::st
+     return out;
+ }
+ 
++bool PatchManager::TryPatchNSOInPlace(std::span<u8> body, const BuildID& build_id_raw,
++                                    const std::string& name) const {
++    if (Settings::values.dump_nso)
++        return false;
++    const auto load_dir = GetModificationLoadRoot();
++    if (load_dir == nullptr)
++        return false;
++    const auto build_id = Common::HexToString(build_id_raw);
++    auto patch_dirs = load_dir->GetSubdirectories();
++    std::sort(patch_dirs.begin(), patch_dirs.end(),
++              [](const VirtualDir& l, const VirtualDir& r) { return l->GetName() < r->GetName(); });
++    const auto patch_files = CollectPatches(patch_dirs, build_id);
++    // Preflight the complete list so mixed IPS/text collections fall back
++    // without partially applying anything or changing their ordering.
++    for (const auto& file : patch_files) {
++        if (file->GetExtension() != "pchtxt")
++            return false;
++    }
++    std::vector<std::unique_ptr<IPSwitchCompiler>> compiled;
++    compiled.reserve(patch_files.size());
++    for (const auto& file : patch_files)
++        compiled.push_back(std::make_unique<IPSwitchCompiler>(file));
++    for (const auto& compiler : compiled)
++        compiler->ApplyToModule(body, sizeof(Loader::NSOHeader));
++    LOG_INFO(Loader, "Patched module {} in place: {} text patches, {} bytes; no image copies",
++             name, compiled.size(), body.size());
++    return true;
++}
++
+ bool PatchManager::HasNSOPatch(const BuildID& build_id_, std::string_view name) const {
+     const auto build_id_raw = Common::HexToString(build_id_);
+     const auto build_id = build_id_raw.substr(0, build_id_raw.find_last_not_of('0') + 1);
+diff --git a/src/core/file_sys/patch_manager.h b/src/core/file_sys/patch_manager.h
+index 6819a1a..e5c17ad 100644
+--- a/src/core/file_sys/patch_manager.h
++++ b/src/core/file_sys/patch_manager.h
+@@ -9,6 +9,7 @@
+ #include <map>
+ #include <memory>
+ #include <optional>
++#include <span>
+ #include <string>
+ #include "common/common_types.h"
+ #include "core/file_sys/nca_metadata.h"
+@@ -74,6 +75,10 @@ public:
+     [[nodiscard]] std::vector<u8> PatchNSO(const std::vector<u8>& nso,
+                                            const std::string& name) const;
+ 
++    // Returns false without mutation when the legacy path is required.
++    [[nodiscard]] bool TryPatchNSOInPlace(std::span<u8> body, const BuildID& build_id,
++                                        const std::string& name) const;
++
+     // Checks to see if PatchNSO() will have any effect given the NSO's build ID.
+     // Used to prevent expensive copies in NSO loader.
+     [[nodiscard]] bool HasNSOPatch(const BuildID& build_id, std::string_view name) const;
+diff --git a/src/core/loader/nso.cpp b/src/core/loader/nso.cpp
+index ea1d1c9..a9c731b 100644
+--- a/src/core/loader/nso.cpp
++++ b/src/core/loader/nso.cpp
+@@ -166,14 +166,16 @@ std::optional<VAddr> AppLoader_NSO::LoadModule(Kernel::KProcess& process, Core::
+     const auto name = nso_file.GetName();
+     if (pm && (pm->HasNSOPatch(nso_header.build_id, name) || Settings::values.dump_nso)) {
+         std::span<u8> patchable_section(codeset.memory.data() + module_start, codeset.memory.size() - module_start);
+-        std::vector<u8> pi_header(sizeof(NSOHeader) + patchable_section.size());
+-        std::memcpy(pi_header.data(), &nso_header, sizeof(NSOHeader));
+-        std::memcpy(pi_header.data() + sizeof(NSOHeader), patchable_section.data(),
+-                    patchable_section.size());
+-
+-        pi_header = pm->PatchNSO(pi_header, name);
+-
+-        std::copy(pi_header.begin() + sizeof(NSOHeader), pi_header.end(), patchable_section.data());
++        if (!pm->TryPatchNSOInPlace(patchable_section, nso_header.build_id, name)) {
++            std::vector<u8> pi_header(sizeof(NSOHeader) + patchable_section.size());
++            std::memcpy(pi_header.data(), &nso_header, sizeof(NSOHeader));
++            std::memcpy(pi_header.data() + sizeof(NSOHeader), patchable_section.data(),
++                        patchable_section.size());
++    
++            pi_header = pm->PatchNSO(pi_header, name);
++    
++            std::copy(pi_header.begin() + sizeof(NSOHeader), pi_header.end(), patchable_section.data());
++        }
+     }
+ 
+ #ifdef HAS_NCE
